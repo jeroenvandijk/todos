@@ -1,0 +1,26 @@
+{{view Todos.CreateTodoView id="new-todo" placeholder="What needs to be done?"}}
+
+{{#view Todos.StatsView id="stats"}}
+  {{#view SC.Button classBinding="isActive"
+    target="Todos.todosController"
+    action="clearCompletedTodos"}}
+    Clear Completed Todos
+  {{/view}}
+  {{remainingString}} remaining
+{{/view}}
+
+{{view SC.Checkbox class="mark-all-done"
+  title="Mark All as Done"
+  valueBinding="Todos.todosController.allAreDone"}}
+
+{{#collection contentBinding="Todos.todosController" tagName="ul" itemClassBinding="content.isDone"}}
+  {{#if content.isError}}
+    {{content.errorMessages}}
+  {{else}}
+    {{view SC.Checkbox contentBinding="parentView.parentView.content"
+      titleBinding="content.title" valueBinding="content.isDone"}}
+    <span class="date">({{content.createdAt}})</span>
+  {{/if}}
+{{else}}
+  Everything is done
+{{/collection}}
