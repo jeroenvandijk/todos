@@ -11,16 +11,14 @@ Todos.Todo = SC.Record.extend({
   // attributes
   title: SC.Record.attr(String, {isRequired: true}),
   is_done: SC.Record.attr(Boolean, {defaultValue: false}),
-  created_at: SC.Record.attr(SC.DateTime),
+  created_at: SC.Record.attr(SC.DateTime, {defaultValue: SC.DateTime.create()}),
 
   isDoneBinding: 'is_done',
   createdAt: function() {
-    var created_at = this.get('created_at');
-    if (created_at) {
-      return created_at.toFormattedString('%d/%m/%y');
-    }
-    return '';
+    return this.get('created_at').toFormattedString('%d/%m/%y');
   }.property('created_at').cacheable(),
+
+  // Error messages
   errorMessages: function() {
     var errors = this.getPath('errorValue.body'),
         messages = [], message = "";
@@ -31,18 +29,7 @@ Todos.Todo = SC.Record.extend({
       }    
     }
     return message;
-  }.property('errorValue.body').cacheable(),
-  removeErrors: function() {
-    if (this.get('isError')) {
-      SC.run.later(this, '_destroy', 4000);
-    }
-  }.observes('isError'),
-  _destroy: function() {
-    //Todos.store.set('commitRecordsAutomatically', false);
-    //this.destroy();
-    //Todos.store.cancelRecord(Todos.Todo, this.get('id'));
-    //Todos.store.set('commitRecordsAutomatically', true);
-  }
+  }.property('errorValue.body').cacheable()
 });
 
 Todos.Todo.resourceName = 'todos';
@@ -52,25 +39,29 @@ Todos.todosController = SC.ArrayProxy.create({
 
   createTodo: function(title) {
     Todos.store.createRecord(Todos.Todo, {
-      title: title,
-      created_at: new Date()
+      title: title
     });
-  },
-
-  destroyTodo: function(record) {
-    record.destroy();
   },
 
   loadTodos: function() {
-    var query = SC.Query.local(Todos.Todo, {
-      orderBy: 'created_at DESC'
+    var query = SC.Query.local(Todos.Todo, {orderBy: 'created_at DESC'}),
+        data = Todos.store.find(query);
+
+    data.addObserver('status', this, function observer() {
+      if (data.get('status') === SC.Record.READY_CLEAN) {
+        data.removeObserver('status', this, observer);
+        this.set('content', data);
+      }
     });
-    var records = Todos.store.find(query);
-    this.set('content', records);
+
+    // in case our data was already loaded (ie synchronous)
+    data.notifyPropertyChange('status');
   },
 
   clearCompletedTodos: function() {
-    this.filterProperty('isDone', true).forEach(this.destroyTodo, this);
+    this.filterProperty('isDone', true).forEach(function(todo) {
+      todo.destroy();
+    }, this);
   },
 
   remaining: function() {
@@ -108,6 +99,4 @@ Todos.CreateTodoView = SC.TextField.extend({
   }
 });
 
-SC.$(function() {
-  Todos.todosController.loadTodos();
-});
+Todos.todosController.loadTodos();
